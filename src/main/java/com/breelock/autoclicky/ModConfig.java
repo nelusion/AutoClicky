@@ -2,171 +2,113 @@ package com.breelock.autoclicky;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.FileReader;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
-import net.minecraft.client.MinecraftClient;
+import net.fabricmc.loader.api.FabricLoader;
 
 public class ModConfig {
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path configFilePath = Paths.get(MinecraftClient.getInstance().runDirectory.getAbsolutePath(), "config", "com.breelock.autoclicky.config.json");
 
-    public static PvP selectedPvp = PvP.Old;
-    public static final List<String> pvpSystems = new ArrayList<String>() {{add("gui.autoclicky.oldCombatTitle"); add("gui.autoclicky.newCombatTitle");}};
+    private static final File CONFIG_FILE =
+            FabricLoader.getInstance()
+                    .getConfigDir()
+                    .resolve("autoclicky.json")
+                    .toFile();
 
-    public static class OldPvP {
-        public static int leftMinDelay = Default.leftMinDelay;
-        public static int leftMaxDelay = Default.leftMaxDelay;
 
-        public static int rightMinDelay = Default.rightMinDelay;
-        public static int rightMaxDelay = Default.rightMaxDelay;
+    private static final Gson GSON =
+            new GsonBuilder()
+                    .setPrettyPrinting()
+                    .create();
 
-        public static boolean interrupt = Default.interrupt;
-        public static boolean showMessage = Default.showMessage;
-        public static boolean autoJump = Default.autoJump;
-        public static boolean onlyEntity = Default.onlyEntityOldPvP;
-    }
 
-    public static class NewPvP {
-        public static int leftMinDelay = Default.leftMinDelay;
-        public static int leftMaxDelay = Default.leftMaxDelay;
 
-        public static int rightMinDelay = Default.rightMinDelay;
-        public static int rightMaxDelay = Default.rightMaxDelay;
+    public static Config DATA = new Config();
 
-        public static boolean interrupt = Default.interrupt;
-        public static boolean showMessage = Default.showMessage;
-        public static boolean autoJump = Default.autoJump;
-        public static boolean onlyEntity = Default.onlyEntityNewPvP;
-    }
 
-    public static class Default {
-        public static final int selectedPvp = 0;
-
-        public static final int leftMinDelay = 0;
-        public static final int leftMaxDelay = 1;
-
-        public static final int rightMinDelay = 0;
-        public static final int rightMaxDelay = 1;
-
-        public static final boolean interrupt = true;
-        public static final boolean showMessage = true;
-        public static final boolean autoJump = false;
-
-        public static boolean onlyEntityNewPvP = true;
-        public static boolean onlyEntityOldPvP = false;
-    }
-
-    public enum PvP {
-        Old,
-        New
-    }
-
-    public static void save() {
-        JsonObject config = new JsonObject();
-
-        config.addProperty("selectedPvp", selectedPvp.ordinal());
-
-        config.addProperty("OldPvP.leftMinDelay", OldPvP.leftMinDelay);
-        config.addProperty("OldPvP.leftMaxDelay", OldPvP.leftMaxDelay);
-
-        config.addProperty("OldPvP.rightMinDelay", OldPvP.rightMinDelay);
-        config.addProperty("OldPvP.rightMaxDelay", OldPvP.rightMaxDelay);
-
-        config.addProperty("OldPvP.interrupt", OldPvP.interrupt);
-        config.addProperty("OldPvP.showMessage", OldPvP.showMessage);
-        config.addProperty("OldPvP.autoJump", OldPvP.autoJump);
-        config.addProperty("OldPvP.onlyEntity", OldPvP.onlyEntity);
-
-        config.addProperty("NewPvP.leftMinDelay", NewPvP.leftMinDelay);
-        config.addProperty("NewPvP.leftMaxDelay", NewPvP.leftMaxDelay);
-
-        config.addProperty("NewPvP.rightMinDelay", NewPvP.rightMinDelay);
-        config.addProperty("NewPvP.rightMaxDelay", NewPvP.rightMaxDelay);
-
-        config.addProperty("NewPvP.interrupt", NewPvP.interrupt);
-        config.addProperty("NewPvP.showMessage", NewPvP.showMessage);
-        config.addProperty("NewPvP.autoJump", NewPvP.autoJump);
-        config.addProperty("NewPvP.onlyEntity", NewPvP.onlyEntity);
-
-        try (FileWriter writer = new FileWriter(configFilePath.toFile())) {
-            gson.toJson(config, writer);
-            AutoClicky.LOGGER.info("AutoClicky mod configuration saved");
-        } catch (IOException e) {
-            AutoClicky.LOGGER.error("AutoClicky mod failed to save configuration!", e);
-        }
-    }
 
     public static void load() {
-        if (configFilePath.toFile().exists()) {
-            try (FileReader reader = new FileReader(configFilePath.toFile())) {
-                JsonObject config = gson.fromJson(reader, JsonObject.class);
 
-                selectedPvp = PvP.values()[config.has("selectedPvp") ? config.get("selectedPvp").getAsInt() : Default.selectedPvp];
+        if (!CONFIG_FILE.exists()) {
 
-                OldPvP.leftMinDelay = config.has("OldPvP.leftMinDelay") ? config.get("OldPvP.leftMinDelay").getAsInt() : Default.leftMinDelay;
-                OldPvP.leftMaxDelay = config.has("OldPvP.leftMaxDelay") ? config.get("OldPvP.leftMaxDelay").getAsInt() : Default.leftMaxDelay;
+            save();
+            apply();
 
-                OldPvP.rightMinDelay = config.has("OldPvP.rightMinDelay") ? config.get("OldPvP.rightMinDelay").getAsInt() : Default.rightMinDelay;
-                OldPvP.rightMaxDelay = config.has("OldPvP.rightMaxDelay") ? config.get("OldPvP.rightMaxDelay").getAsInt() : Default.rightMaxDelay;
-
-                OldPvP.interrupt = config.has("OldPvP.interrupt") ? config.get("OldPvP.interrupt").getAsBoolean() : Default.interrupt;
-                OldPvP.showMessage = config.has("OldPvP.showMessage") ? config.get("OldPvP.showMessage").getAsBoolean() : Default.showMessage;
-                OldPvP.autoJump = config.has("OldPvP.autoJump") ? config.get("OldPvP.autoJump").getAsBoolean() : Default.autoJump;
-                OldPvP.onlyEntity = config.has("OldPvP.onlyEntity") ? config.get("OldPvP.onlyEntity").getAsBoolean() : Default.onlyEntityOldPvP;
-
-                NewPvP.leftMinDelay = config.has("NewPvP.leftMinDelay") ? config.get("NewPvP.leftMinDelay").getAsInt() : Default.leftMinDelay;
-                NewPvP.leftMaxDelay = config.has("NewPvP.leftMaxDelay") ? config.get("NewPvP.leftMaxDelay").getAsInt() : Default.leftMaxDelay;
-
-                NewPvP.rightMinDelay = config.has("NewPvP.rightMinDelay") ? config.get("NewPvP.rightMinDelay").getAsInt() : Default.rightMinDelay;
-                NewPvP.rightMaxDelay = config.has("NewPvP.rightMaxDelay") ? config.get("NewPvP.rightMaxDelay").getAsInt() : Default.rightMaxDelay;
-
-                NewPvP.interrupt = config.has("NewPvP.interrupt") ? config.get("NewPvP.interrupt").getAsBoolean() : Default.interrupt;
-                NewPvP.showMessage = config.has("NewPvP.showMessage") ? config.get("NewPvP.showMessage").getAsBoolean() : Default.showMessage;
-                NewPvP.autoJump = config.has("NewPvP.autoJump") ? config.get("NewPvP.autoJump").getAsBoolean() : Default.autoJump;
-                NewPvP.onlyEntity = config.has("NewPvP.onlyEntity") ? config.get("NewPvP.onlyEntity").getAsBoolean() : Default.onlyEntityNewPvP;
-
-                AutoClicky.LOGGER.info("AutoClicky mod loaded user configuration");
-            } catch (IOException e) {
-                AutoClicky.LOGGER.error("AutoClicky mod failed to load configuration!", e);
-            }
+            return;
         }
-        else {
-            loadDefault();
-            AutoClicky.LOGGER.info("AutoClicky mod loaded default configuration");
+
+
+        try (FileReader reader = new FileReader(CONFIG_FILE)) {
+
+            DATA = GSON.fromJson(reader, Config.class);
+
+            if (DATA == null)
+                DATA = new Config();
+
+        }
+
+        catch (IOException e) {
+
+            e.printStackTrace();
+
+            DATA = new Config();
+        }
+
+
+        apply();
+    }
+
+
+
+    public static void save() {
+
+        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
+
+            GSON.toJson(DATA, writer);
+
+        }
+
+        catch (IOException e) {
+
+            e.printStackTrace();
         }
     }
 
-    public static void loadDefault() {
-        selectedPvp = PvP.values()[Default.selectedPvp];
 
-        OldPvP.leftMinDelay = Default.leftMinDelay;
-        OldPvP.leftMaxDelay = Default.leftMaxDelay;
 
-        OldPvP.rightMinDelay = Default.rightMinDelay;
-        OldPvP.rightMaxDelay = Default.rightMaxDelay;
+    private static void apply() {
 
-        OldPvP.interrupt = Default.interrupt;
-        OldPvP.showMessage = Default.showMessage;
-        OldPvP.autoJump = Default.autoJump;
-        OldPvP.onlyEntity = Default.onlyEntityOldPvP;
+        AutoClicky.minCPS = DATA.minCPS;
+        AutoClicky.maxCPS = DATA.maxCPS;
+    }
 
-        NewPvP.leftMinDelay = Default.leftMinDelay;
-        NewPvP.leftMaxDelay = Default.leftMaxDelay;
 
-        NewPvP.rightMinDelay = Default.rightMinDelay;
-        NewPvP.rightMaxDelay = Default.rightMaxDelay;
 
-        NewPvP.interrupt = Default.interrupt;
-        NewPvP.showMessage = Default.showMessage;
-        NewPvP.autoJump = Default.autoJump;
-        NewPvP.onlyEntity = Default.onlyEntityNewPvP;
+    public static class Config {
+
+
+        /*
+         * Zufällige CPS-Spanne
+         *
+         * Beispiel:
+         *
+         * minCPS = 8
+         * maxCPS = 14
+         *
+         * ergibt wechselnde Klickgeschwindigkeit.
+         */
+        public int minCPS = 8;
+
+        public int maxCPS = 14;
+
+
+
+        /*
+         * Zeigt Aktivierungsnachrichten
+         */
+        public boolean showMessages = true;
     }
 }
