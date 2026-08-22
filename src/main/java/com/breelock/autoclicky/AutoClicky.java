@@ -1,141 +1,185 @@
 package com.breelock.autoclicky;
 
-import com.breelock.autoclicky.pages.NewCombat;
-import com.breelock.autoclicky.pages.OldCombat;
-
-import net.fabricmc.api.ModInitializer;
+import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.TranslatableText;
+import net.minecraft.text.Text;
 
 import org.lwjgl.glfw.GLFW;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class AutoClicky implements ModInitializer {
-	public static final String MOD_ID = "autoclicky";
-	public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
+public class AutoClicky implements ClientModInitializer {
 
-	private static KeyBinding leftBind;
-	private static KeyBinding rightBind;
-	private static KeyBinding settingsBind;
-	private static KeyBinding switchPvPSystemBind;
+    public static final String MOD_ID = "autoclicky";
 
-	private static boolean leftIsNowEnabled = false;
-	private static boolean rightIsNowEnabled = false;
-	private static int currentDelay = 0;
+    private static KeyBinding leftClickBind;
+    private static KeyBinding rightClickBind;
+    private static KeyBinding settingsBind;
 
-	@Override
-	public void onInitialize() {
-		// Load configuration
-		ModConfig.load();
+    private static boolean leftEnabled = false;
+    private static boolean rightEnabled = false;
 
-		// Register key binds
-		leftBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(new TranslatableText("gui.autoclicky.leftBind").getString(), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "AutoClicky"));
-		rightBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(new TranslatableText("gui.autoclicky.rightBind").getString(), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, "AutoClicky"));
-		settingsBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(new TranslatableText("gui.autoclicky.settingsBind").getString(), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, "AutoClicky"));
-		switchPvPSystemBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(new TranslatableText("gui.autoclicky.switchPvPSystemBind").getString(), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_H, "AutoClicky"));
+    private static int clickDelayTicks = 0;
 
-		// Called every tick
-		ClientTickEvents.START_CLIENT_TICK.register(client -> {
-			boolean isNewPvp = ModConfig.selectedPvp == ModConfig.PvP.New;
+    /*
+     * Später aus ModConfig laden
+     *
+     * Beispiel:
+     * minCPS = 8
+     * maxCPS = 14
+     */
+    public static int minCPS = 8;
+    public static int maxCPS = 14;
 
-			if (client.player != null) {
-				// Left mouse button activation
-				if (leftBind.wasPressed()) {
-					autoClickyActivation(client, true, isNewPvp);
-                }
 
-				// Right mouse button activation
-                else if (rightBind.wasPressed()) {
-					autoClickyActivation(client, false, isNewPvp);
-                }
+    @Override
+    public void onInitializeClient() {
 
-				// Open config screen
-				else if (settingsBind.wasPressed())
-					client.openScreen(isNewPvp ? new NewCombat() : new OldCombat());
+        ModConfig.load();
 
-				// Switch PvP system to new
-				else if (switchPvPSystemBind.wasPressed()) {
-					ModConfig.selectedPvp = isNewPvp ? ModConfig.PvP.Old : ModConfig.PvP.New;
-					isNewPvp = ModConfig.selectedPvp == ModConfig.PvP.New;
 
-					String combatTranslate = new TranslatableText(isNewPvp ? "gui.autoclicky.newCombatTitle" : "gui.autoclicky.oldCombatTitle").getString();
+        leftClickBind = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.autoclicky.left",
+                        InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_UNKNOWN,
+                        "key.categories.autoclicky"
+                )
+        );
 
-					if (isNewPvp && ModConfig.NewPvP.showMessage || !isNewPvp && ModConfig.OldPvP.showMessage)
-						client.player.sendMessage(new LiteralText(new TranslatableText("gui.autoclicky.toggle.pvpSwitch").getString() + " " + combatTranslate), true);
 
-					ModConfig.save();
-				}
+        rightClickBind = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.autoclicky.right",
+                        InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_UNKNOWN,
+                        "key.categories.autoclicky"
+                )
+        );
 
-				// Left mouse button click
-                if (leftIsNowEnabled) {
-                    if (client.player != null && client.currentScreen == null) {
-						if (currentDelay <= 0) {
-							PlayerMethods.attack(client, isNewPvp);
-							if (isNewPvp)
-								currentDelay = Utils.randint(ModConfig.NewPvP.leftMinDelay, ModConfig.NewPvP.leftMaxDelay);
-							else
-								currentDelay = Utils.randint(ModConfig.OldPvP.leftMinDelay, ModConfig.OldPvP.leftMaxDelay);
-						}
-						else
-							currentDelay--;
-                    }
-                }
 
-				// Right mouse button click
-                else if (rightIsNowEnabled) {
-                    if (client.player != null && client.currentScreen == null) {
-                        if (currentDelay <= 0) {
-                            PlayerMethods.interact(client);
-                            if (isNewPvp)
-                                currentDelay = Utils.randint(ModConfig.NewPvP.rightMinDelay, ModConfig.NewPvP.rightMaxDelay);
-                            else
-                                currentDelay = Utils.randint(ModConfig.OldPvP.rightMinDelay, ModConfig.OldPvP.rightMaxDelay);
-                        }
-                        else
-                            currentDelay--;
-                    }
-                }
-			}
-		});
-	}
+        settingsBind = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.autoclicky.settings",
+                        InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_UNKNOWN,
+                        "key.categories.autoclicky"
+                )
+        );
 
-	private void autoClickyActivation(MinecraftClient client, boolean isLeft, boolean isNewPvP) {
-		if (client != null && client.player != null) {
-			boolean btnIsNowEnabled;
 
-			if (isLeft) { // left mouse button
-				leftIsNowEnabled = !leftIsNowEnabled;
-				rightIsNowEnabled = false;
-				btnIsNowEnabled = leftIsNowEnabled;
-			}
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
 
-			else { // right mouse button
-				rightIsNowEnabled = !rightIsNowEnabled;
-				leftIsNowEnabled = false;
-				btnIsNowEnabled = rightIsNowEnabled;
-			}
+            if (client.player == null)
+                return;
 
-			currentDelay = 0;
 
-			String isLeftTranslate = new TranslatableText(isLeft ? "gui.autoclicky.left" : "gui.autoclicky.right").getString();
-			String btnIsNowEnabledTranslate = new TranslatableText(btnIsNowEnabled ? "gui.autoclicky.activated" : "gui.autoclicky.deactivated").getString();
-			String isNewPvPTranslate = "[" + new TranslatableText(isNewPvP ? "gui.autoclicky.newCombatTitle" : "gui.autoclicky.oldCombatTitle").getString() + "]";
+            if (leftClickBind.wasPressed()) {
 
-			if (isNewPvP && ModConfig.NewPvP.showMessage || !isNewPvP && ModConfig.OldPvP.showMessage) {
-				String text = "[" + isLeftTranslate + " " + new TranslatableText("gui.autoclicky.toggle.mouseButton").getString() + "] AutoClicky " + btnIsNowEnabledTranslate;
-				if (isLeft)
-					text += " " + isNewPvPTranslate;
+                leftEnabled = !leftEnabled;
+                rightEnabled = false;
 
-				client.player.sendMessage(new LiteralText(text), true);
-			}
-		}
-	}
+                sendToggleMessage(
+                        client,
+                        "Linksklick",
+                        leftEnabled
+                );
+            }
+
+
+            if (rightClickBind.wasPressed()) {
+
+                rightEnabled = !rightEnabled;
+                leftEnabled = false;
+
+                sendToggleMessage(
+                        client,
+                        "Rechtsklick",
+                        rightEnabled
+                );
+            }
+
+
+            if (settingsBind.wasPressed()) {
+
+                /*
+                 * Wird später ersetzt:
+                 * client.setScreen(new OldCombatScreen());
+                 */
+            }
+
+
+            if (client.currentScreen != null)
+                return;
+
+
+            if (clickDelayTicks > 0) {
+                clickDelayTicks--;
+                return;
+            }
+
+
+            if (leftEnabled) {
+
+                PlayerMethods.attack(client);
+
+                clickDelayTicks = calculateDelay();
+            }
+
+
+            else if (rightEnabled) {
+
+                PlayerMethods.interact(client);
+
+                clickDelayTicks = calculateDelay();
+            }
+
+        });
+    }
+
+
+
+    private static int calculateDelay() {
+
+        int cps = ThreadLocalRandom.current()
+                .nextInt(minCPS, maxCPS + 1);
+
+
+        /*
+         * Minecraft läuft mit 20 Ticks pro Sekunde.
+         *
+         * Beispiel:
+         * 10 CPS = ungefähr alle 2 Ticks
+         */
+        return Math.max(
+                1,
+                20 / cps
+        );
+    }
+
+
+
+    private static void sendToggleMessage(
+            MinecraftClient client,
+            String button,
+            boolean enabled
+    ) {
+
+        if (client.player == null)
+            return;
+
+
+        client.player.sendMessage(
+                Text.literal(
+                        button +
+                        (enabled ? " aktiviert" : " deaktiviert")
+                ),
+                true
+        );
+    }
 }
